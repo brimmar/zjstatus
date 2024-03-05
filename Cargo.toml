@@ -1,6 +1,6 @@
 [package]
 name = "zjstatus"
-version = "0.13.1"
+version = "0.13.0"
 authors = ["Daniel Jankowski"]
 edition = "2018"
 
@@ -16,7 +16,7 @@ bench = []
 
 [dependencies]
 zellij-tile = "0.39.0"
-chrono = { version = "0.4.0", default-features = false }
+chrono = { version = "0.4.0", features = ["unstable-locales"] }
 regex = "1.10.0"
 chrono-tz = "0.8.3"
 anyhow = "1.0.75"

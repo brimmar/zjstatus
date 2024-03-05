@@ -1,5 +1,6 @@
 use std::{collections::BTreeMap, str::FromStr};
 
+use chrono::prelude::*;
 use chrono::Local;
 use chrono_tz::Tz;
 
@@ -44,7 +45,7 @@ impl DateTimeWidget {
 }
 
 impl Widget for DateTimeWidget {
-    fn process(&self, _name: &str ,_state: &ZellijState) -> String {
+    fn process(&self, _name: &str, _state: &ZellijState) -> String {
         let mut output = self.color_format.content.clone();
         if output.contains("{format}") {
             let date = Local::now();
@@ -56,7 +57,12 @@ impl Widget for DateTimeWidget {
 
             output = output.replace(
                 "{format}",
-                format!("{}", date.with_timezone(&tz).format(self.format.as_str())).as_str(),
+                format!(
+                    "{}",
+                    date.with_timezone(&tz)
+                        .format_localized(self.format.as_str(), Locale::pt_BR)
+                )
+                .as_str(),
             );
         }
 
