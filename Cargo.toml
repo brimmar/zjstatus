@@ -17,7 +17,7 @@ tracing = []
 
 [dependencies]
 zellij-tile = "0.39.0"
-chrono = { version = "0.4.0", features = ["unstable-locales"] }
+chrono = { version = "0.4.0", default-features = false, features = ["unstable-locales"] }
 regex = "1.10.0"
 chrono-tz = "0.8.3"
 anyhow = "1.0.75"
