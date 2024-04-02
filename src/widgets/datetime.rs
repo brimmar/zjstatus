@@ -12,6 +12,7 @@ pub struct DateTimeWidget {
     format: String,
     color_format: FormattedPart,
     time_zone: Option<Tz>,
+    locale: Option<Locale>,
 }
 
 impl DateTimeWidget {
@@ -31,6 +32,16 @@ impl DateTimeWidget {
             Err(_) => None,
         };
 
+        let mut locale_string = "en_US";
+        if let Some(loc_string) = config.get("datetime_locale") {
+            locale_string = loc_string;
+        }
+
+        let locale = match Locale::from_str(locale_string) {
+            Ok(lc) => Some(lc),
+            Err(_) => None,
+        };
+
         let mut color_format = "";
         if let Some(form) = config.get("datetime") {
             color_format = form;
@@ -40,6 +51,7 @@ impl DateTimeWidget {
             format: format.to_owned(),
             color_format: FormattedPart::from_format_string(color_format),
             time_zone,
+            locale,
         }
     }
 }
@@ -55,12 +67,17 @@ impl Widget for DateTimeWidget {
                 tz = t;
             }
 
+            let mut loc = Locale::en_US;
+            if let Some(l) = self.locale {
+                loc = l;
+            }
+
             output = output.replace(
                 "{format}",
                 format!(
                     "{}",
                     date.with_timezone(&tz)
-                        .format_localized(self.format.as_str(), Locale::pt_BR)
+                        .format_localized(self.format.as_str(), loc)
                 )
                 .as_str(),
             );
