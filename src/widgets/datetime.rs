@@ -78,6 +78,11 @@ impl Widget for DateTimeWidget {
             tz = t;
         }
 
+        let mut loc = Locale::en_US;
+        if let Some(lc) = self.locale {
+            loc = lc
+        }
+
         self.color_format
             .iter()
             .map(|f| {
@@ -86,8 +91,12 @@ impl Widget for DateTimeWidget {
                 if content.contains("{format}") {
                     content = content.replace(
                         "{format}",
-                        format!("{}", date.with_timezone(&tz).format(self.format.as_str()))
-                            .as_str(),
+                        format!(
+                            "{}",
+                            date.with_timezone(&tz)
+                                .format_localized(self.format.as_str(), loc)
+                        )
+                        .as_str(),
                     );
                 }
 
@@ -96,7 +105,8 @@ impl Widget for DateTimeWidget {
                         "{date}",
                         format!(
                             "{}",
-                            date.with_timezone(&tz).format(self.date_format.as_str())
+                            date.with_timezone(&tz)
+                                .format_localized(self.date_format.as_str(), loc)
                         )
                         .as_str(),
                     );
@@ -107,7 +117,8 @@ impl Widget for DateTimeWidget {
                         "{time}",
                         format!(
                             "{}",
-                            date.with_timezone(&tz).format(self.time_format.as_str())
+                            date.with_timezone(&tz)
+                                .format_localized(self.time_format.as_str(), loc)
                         )
                         .as_str(),
                     );
