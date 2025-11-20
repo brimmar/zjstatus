@@ -2,7 +2,7 @@ use kdl::{KdlDocument, KdlError};
 use lazy_static::lazy_static;
 use std::{
     collections::BTreeMap,
-    fs::{remove_file, File},
+    fs::{File, remove_file},
     ops::Sub,
     path::{Path, PathBuf},
 };
@@ -12,7 +12,7 @@ use regex::Regex;
 #[cfg(all(not(feature = "bench"), not(test)))]
 use zellij_tile::shim::{run_command, run_command_with_env_variables_and_cwd};
 
-use crate::render::{formatted_parts_from_string_cached, FormattedPart};
+use crate::render::{FormattedPart, formatted_parts_from_string_cached};
 
 use crate::{config::ZellijState, widgets::widget::Widget};
 
@@ -38,6 +38,7 @@ struct CommandConfig {
     interval: i64,
     render_mode: RenderMode,
     click_action: String,
+    hide_on_empty_stdout: bool,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -79,6 +80,10 @@ impl Widget for CommandWidget {
                 return "".to_owned();
             }
         };
+
+        if command_config.hide_on_empty_stdout && command_result.stdout.is_empty() {
+            return "".to_owned();
+        }
 
         let content = command_config
             .format
@@ -126,7 +131,11 @@ impl Widget for CommandWidget {
         match command_config.render_mode {
             RenderMode::Static => content,
             RenderMode::Dynamic => render_dynamic_formatted_content(&content, &self.zj_conf),
-            RenderMode::Raw => content,
+            RenderMode::Raw => command_result
+                .stdout
+                .strip_suffix('\n')
+                .unwrap_or(&command_result.stdout)
+                .to_owned(),
         }
     }
 
@@ -230,6 +239,7 @@ fn parse_config(zj_conf: &BTreeMap<String, String>) -> BTreeMap<String, CommandC
             interval: 1,
             render_mode: RenderMode::Static,
             click_action: "".to_owned(),
+            hide_on_empty_stdout: false,
         };
 
         if let Some(existing_conf) = config.get(command_name.as_str()) {
@@ -281,6 +291,13 @@ fn parse_config(zj_conf: &BTreeMap<String, String>) -> BTreeMap<String, CommandC
                     _ => RenderMode::Static,
                 },
                 None => RenderMode::Static,
+            };
+        }
+
+        if key.ends_with("hideonemptystdout") {
+            command_conf.hide_on_empty_stdout = match zj_conf.get(&key) {
+                Some(val) => val == "true",
+                None => false,
             };
         }
 
@@ -485,6 +502,7 @@ mod test {
                 interval,
                 render_mode: RenderMode::Static,
                 click_action: "".to_owned(),
+                hide_on_empty_stdout: false,
             },
             "test",
             state,

@@ -8,8 +8,8 @@ layout {
 
   tab name="edit" focus=true {
     pane {
-      command "fish"
-      args "-c" "TERM=wezterm direnv exec . nvim"
+      command "direnv"
+      args "exec" "." "nvim"
     }
   }
 
@@ -20,9 +20,5 @@ layout {
         cwd "/var/folders/tt/kygkt3t13gqd68q5rz6ly7pw0000gn/T/zellij-501"
       }
     }
-  }
-
-  tab name="git" {
-    pane
   }
 }

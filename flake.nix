@@ -6,7 +6,6 @@
 
     crane = {
       url = "github:ipetkov/crane";
-      inputs.nixpkgs.follows = "nixpkgs";
     };
 
     flake-utils.url = "github:numtide/flake-utils";
@@ -27,7 +26,7 @@
 
         rustWithWasiTarget = pkgs.rust-bin.stable.latest.default.override {
           extensions = [ "rust-src" "rust-std" "rust-analyzer" ];
-          targets = [ "wasm32-wasi" ];
+          targets = [ "wasm32-wasip1" ];
         };
 
         # NB: we don't need to overlay our custom toolchain for the *entire*
@@ -39,7 +38,7 @@
         zjstatus = craneLib.buildPackage {
           src = craneLib.cleanCargoSource (craneLib.path ./.);
 
-          cargoExtraArgs = "--target wasm32-wasi";
+          cargoExtraArgs = "--target wasm32-wasip1";
 
           # Tests currently need to be run via `cargo wasi` which
           # isn't packaged in nixpkgs yet...
@@ -68,6 +67,7 @@
           # Extra inputs can be added here; cargo and rustc are provided by default
           # from the toolchain that was specified earlier.
           packages = with pkgs; [
+            just
             rustWithWasiTarget
             cargo-audit
             cargo-component

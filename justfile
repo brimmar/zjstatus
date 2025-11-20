@@ -1,23 +1,47 @@
+# Default recipe, when nothing's selected
+[private]
+default:
+  just --choose
+
+# Run benchmarks and compare to previous runs.
 bench:
   cargo bench --features=bench
 
+# Build zjstatus with the tracing feature enabled.
 build:
   cargo build --features tracing
 
-run: build
-  zellij -l ./plugin-dev-workspace.kdl -s zjstatus-dev
+# Build zjstatus with tracing and start a zellij session with the dev layout.
+run target="zjstatus": build
+  #!/usr/bin/env bash
+  case "{{target}}" in
+  "zjframes")
+    zellij -s zjframes-dev --config ./tests/zjframes/config.kdl -n ./tests/zjframes/layout.kdl
+    ;;
+  *)
+    zellij \
+      -s zjstatus-dev \
+      --config ./tests/zjstatus/config.kdl \
+      -n ./tests/zjstatus/layout.kdl
+    ;;
+  esac
 
+# Watch and run tests with nextest.
 test:
   cargo watch -x "nextest run --lib"
 
+# Lint with clippy and cargo audit.
 lint:
-  cargo clippy --all-targets --all-features
+  cargo clippy --all-features --lib
   cargo audit
 
-release version:
-  cargo set-version {{version}}
+# Create and push a new release version.
+release:
+  #!/usr/bin/env bash
+  export VERSION="$( git cliff --bumped-version )"
+  cargo set-version "${VERSION:1}"
   direnv exec . cargo build --release
-  git commit -am "chore: bump version to v{{version}}"
-  git tag -m "v{{version}}" v{{version}}
+  git commit -am "chore: bump version to $VERSION"
+  git tag -m "$VERSION" "$VERSION"
   git push origin main
-  git push origin "v{{version}}"
+  git push origin "$VERSION"

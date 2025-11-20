@@ -15,6 +15,7 @@ use chrono::{DateTime, Local};
 pub struct ZellijState {
     pub cols: usize,
     pub command_results: BTreeMap<String, CommandResult>,
+    pub pipe_results: BTreeMap<String, String>,
     pub mode: ModeInfo,
     pub panes: PaneManifest,
     pub plugin_uuid: String,
@@ -63,6 +64,7 @@ pub fn event_mask_from_widget_name(name: &str) -> u8 {
         "session" => UpdateEventMask::Mode as u8,
         "swap_layout" => UpdateEventMask::Tab as u8,
         "tabs" => UpdateEventMask::Tab as u8,
+        "pipe" => UpdateEventMask::Always as u8,
         _ => UpdateEventMask::None as u8,
     }
 }
@@ -77,6 +79,9 @@ pub struct ModuleConfig {
     pub right_parts: Vec<FormattedPart>,
     pub format_space: FormattedPart,
     pub hide_frame_for_single_pane: bool,
+    pub hide_frame_except_for_search: bool,
+    pub hide_frame_except_for_fullscreen: bool,
+    pub hide_frame_except_for_scroll: bool,
     pub border: BorderConfig,
     pub format_precedence: Vec<Part>,
     pub hide_on_overlength: bool,
@@ -90,6 +95,19 @@ impl ModuleConfig {
         };
 
         let hide_frame_for_single_pane = match config.get("hide_frame_for_single_pane") {
+            Some(toggle) => toggle == "true",
+            None => false,
+        };
+        let hide_frame_except_for_search = match config.get("hide_frame_except_for_search") {
+            Some(toggle) => toggle == "true",
+            None => false,
+        };
+        let hide_frame_except_for_fullscreen = match config.get("hide_frame_except_for_fullscreen")
+        {
+            Some(toggle) => toggle == "true",
+            None => false,
+        };
+        let hide_frame_except_for_scroll = match config.get("hide_frame_except_for_scroll") {
             Some(toggle) => toggle == "true",
             None => false,
         };
@@ -142,6 +160,9 @@ impl ModuleConfig {
             right_parts: parts_from_config(Some(&right_parts_config.to_owned()), config),
             format_space: FormattedPart::from_format_string(format_space_config, config),
             hide_frame_for_single_pane,
+            hide_frame_except_for_search,
+            hide_frame_except_for_fullscreen,
+            hide_frame_except_for_scroll,
             border: border_config,
             format_precedence,
             hide_on_overlength,
@@ -161,6 +182,7 @@ impl ModuleConfig {
             Mouse::RightClick(_, y) => y,
             Mouse::Hold(_, y) => y,
             Mouse::Release(_, y) => y,
+            Mouse::Hover(_, _) => return,
         };
 
         let output_left = self.left_parts.iter_mut().fold("".to_owned(), |acc, part| {
@@ -266,6 +288,10 @@ impl ModuleConfig {
                 widget_key_name = "command";
             }
 
+            if widget_key.starts_with("pipe_") {
+                widget_key_name = "pipe";
+            }
+
             if !tokens.contains(&widget_key_name.to_owned()) {
                 continue;
             }
@@ -303,6 +329,11 @@ impl ModuleConfig {
         state: ZellijState,
         widget_map: BTreeMap<String, Arc<dyn Widget>>,
     ) -> String {
+        if self.left_parts.is_empty() && self.center_parts.is_empty() && self.right_parts.is_empty()
+        {
+            return "No configuration found. See https://github.com/dj95/zjstatus/wiki/3-%E2%80%90-Configuration for more info".to_string();
+        }
+
         let output_left = self.left_parts.iter_mut().fold("".to_owned(), |acc, part| {
             format!(
                 "{acc}{}",
@@ -483,10 +514,13 @@ fn parts_from_config(
     config: &BTreeMap<String, String>,
 ) -> Vec<FormattedPart> {
     match format {
-        Some(format) => format
-            .split("#[")
-            .map(|s| FormattedPart::from_format_string(s, config))
-            .collect(),
+        Some(format) => match format.is_empty() {
+            true => vec![],
+            false => format
+                .split("#[")
+                .map(|s| FormattedPart::from_format_string(s, config))
+                .collect(),
+        },
         None => vec![],
     }
 }

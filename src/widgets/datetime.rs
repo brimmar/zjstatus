@@ -73,6 +73,7 @@ impl DateTimeWidget {
 impl Widget for DateTimeWidget {
     fn process(&self, _name: &str, _state: &ZellijState) -> String {
         let date = Local::now();
+
         let mut tz = Tz::UTC;
         if let Some(t) = self.time_zone {
             tz = t;

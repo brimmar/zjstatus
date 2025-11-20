@@ -12,6 +12,7 @@ use zjstatus::{
         datetime::DateTimeWidget,
         mode::ModeWidget,
         notification::NotificationWidget,
+        pipe::PipeWidget,
         session::SessionWidget,
         swap_layout::SwapLayoutWidget,
         tabs::TabsWidget,
@@ -90,6 +91,7 @@ impl ZellijPlugin for State {
         self.state = ZellijState {
             cols: 0,
             command_results: BTreeMap::new(),
+            pipe_results: BTreeMap::new(),
             mode: ModeInfo::default(),
             panes: PaneManifest::default(),
             plugin_uuid: uid.to_string(),
@@ -163,11 +165,12 @@ impl ZellijPlugin for State {
         self.state.cols = cols;
 
         tracing::debug!("{:?}", self.state.mode.session_name);
-        print!(
-            "{}",
-            self.module_config
-                .render_bar(self.state.clone(), self.widget_map.clone())
-        );
+
+        let output = self
+            .module_config
+            .render_bar(self.state.clone(), self.widget_map.clone());
+
+        print!("{}", output);
     }
 }
 
@@ -199,14 +202,19 @@ impl State {
                 tracing::Span::current().record("event_type", "Event::PaneUpdate");
                 tracing::debug!(pane_count = ?pane_info.panes.len());
 
-                if self.module_config.hide_frame_for_single_pane {
-                    frames::hide_frames_on_single_pane(
-                        self.state.tabs.clone(),
-                        &pane_info,
-                        &self.state.mode,
-                        get_plugin_ids(),
-                    );
-                }
+                frames::hide_frames_conditionally(
+                    &frames::FrameConfig::new(
+                        self.module_config.hide_frame_for_single_pane,
+                        self.module_config.hide_frame_except_for_search,
+                        self.module_config.hide_frame_except_for_fullscreen,
+                        self.module_config.hide_frame_except_for_scroll,
+                    ),
+                    &self.state.tabs,
+                    &pane_info,
+                    &self.state.mode,
+                    get_plugin_ids(),
+                    false,
+                );
 
                 self.state.panes = pane_info;
                 self.state.cache_mask = UpdateEventMask::Tab as u8;
@@ -254,17 +262,22 @@ impl State {
             Event::SessionUpdate(session_info, _) => {
                 tracing::Span::current().record("event_type", "Event::SessionUpdate");
 
-                if self.module_config.hide_frame_for_single_pane {
-                    let current_session = session_info.iter().find(|s| s.is_current_session);
+                let current_session = session_info.iter().find(|s| s.is_current_session);
 
-                    if let Some(current_session) = current_session {
-                        frames::hide_frames_on_single_pane(
-                            current_session.clone().tabs,
-                            &current_session.panes,
-                            &self.state.mode,
-                            get_plugin_ids(),
-                        );
-                    }
+                if let Some(current_session) = current_session {
+                    frames::hide_frames_conditionally(
+                        &frames::FrameConfig::new(
+                            self.module_config.hide_frame_for_single_pane,
+                            self.module_config.hide_frame_except_for_search,
+                            self.module_config.hide_frame_except_for_fullscreen,
+                            self.module_config.hide_frame_except_for_scroll,
+                        ),
+                        &current_session.tabs,
+                        &current_session.panes,
+                        &self.state.mode,
+                        get_plugin_ids(),
+                        false,
+                    );
                 }
 
                 self.state.sessions = session_info;
@@ -298,6 +311,7 @@ fn register_widgets(configuration: &BTreeMap<String, String>) -> BTreeMap<String
         "datetime".to_owned(),
         Arc::new(DateTimeWidget::new(configuration)),
     );
+    widget_map.insert("pipe".to_owned(), Arc::new(PipeWidget::new(configuration)));
     widget_map.insert(
         "swap_layout".to_owned(),
         Arc::new(SwapLayoutWidget::new(configuration)),
