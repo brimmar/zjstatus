@@ -1,5 +1,6 @@
 use std::{collections::BTreeMap, str::FromStr};
 
+use chrono::prelude::*;
 use chrono::Local;
 use chrono_tz::Tz;
 
@@ -13,6 +14,7 @@ pub struct DateTimeWidget {
     date_format: String,
     color_format: Vec<FormattedPart>,
     time_zone: Option<Tz>,
+    locale: Option<Locale>,
 }
 
 impl DateTimeWidget {
@@ -44,12 +46,23 @@ impl DateTimeWidget {
             color_format = form;
         }
 
+        let mut locale_string = "en_US";
+        if let Some(loc_string) = config.get("datetime_locale") {
+            locale_string = loc_string;
+        }
+
+        let locale = match locale_string.parse::<Locale>() {
+            Ok(lc) => Some(lc),
+            Err(_) => None,
+        };
+
         Self {
             format: format.to_owned(),
             date_format: date_format.to_owned(),
             time_format: time_format.to_owned(),
             color_format: FormattedPart::multiple_from_format_string(color_format, config),
             time_zone,
+            locale,
         }
     }
 }
@@ -57,11 +70,12 @@ impl DateTimeWidget {
 impl Widget for DateTimeWidget {
     fn process(&self, _name: &str, _state: &ZellijState) -> String {
         let date = Local::now();
-
         let mut tz = Tz::UTC;
         if let Some(t) = self.time_zone {
             tz = t;
         }
+
+        let date_with_tz = date.with_timezone(&tz);
 
         self.color_format
             .iter()
@@ -71,18 +85,21 @@ impl Widget for DateTimeWidget {
                 if content.contains("{format}") {
                     content = content.replace(
                         "{format}",
-                        format!("{}", date.with_timezone(&tz).format(self.format.as_str()))
-                            .as_str(),
+                        match &self.locale {
+                            Some(locale) => format!("{}", date_with_tz.format_localized(self.format.as_str(), *locale)),
+                            None => format!("{}", date_with_tz.format(self.format.as_str())),
+                        }
+                        .as_str(),
                     );
                 }
 
                 if content.contains("{date}") {
                     content = content.replace(
                         "{date}",
-                        format!(
-                            "{}",
-                            date.with_timezone(&tz).format(self.date_format.as_str())
-                        )
+                        match &self.locale {
+                            Some(locale) => format!("{}", date_with_tz.format_localized(self.date_format.as_str(), *locale)),
+                            None => format!("{}", date_with_tz.format(self.date_format.as_str())),
+                        }
                         .as_str(),
                     );
                 }
@@ -90,10 +107,10 @@ impl Widget for DateTimeWidget {
                 if content.contains("{time}") {
                     content = content.replace(
                         "{time}",
-                        format!(
-                            "{}",
-                            date.with_timezone(&tz).format(self.time_format.as_str())
-                        )
+                        match &self.locale {
+                            Some(locale) => format!("{}", date_with_tz.format_localized(self.time_format.as_str(), *locale)),
+                            None => format!("{}", date_with_tz.format(self.time_format.as_str())),
+                        }
                         .as_str(),
                     );
                 }
